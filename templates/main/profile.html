@@ -1,0 +1,21 @@
+{% extends 'main/base.html' %}
+{% block content %}
+<h2>Личный кабинет</h2>
+<p>Привет, {{ user.username }}!</p>
+
+<h3 class="mt-4">Добавленные ДТП:</h3>
+<ul class="list-group">
+  {% for accident in user.accident_set.all %}
+    <li class="list-group-item">
+      <b>{{ accident.title }}</b> ({{ accident.get_accident_type_display }})<br>
+      {{ accident.description }}<br>
+      <form action="{% url 'delete_accident' accident.id %}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-danger mt-1">Удалить</button>
+      </form>
+    </li>
+  {% empty %}
+    <li class="list-group-item">Вы пока не добавили ни одного ДТП.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

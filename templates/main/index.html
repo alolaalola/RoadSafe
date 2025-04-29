@@ -1,0 +1,113 @@
+{% extends "main/base.html" %}
+
+{% block content %}
+<h2>Карта дорожно-транспортных происшествий в Москве</h2>
+
+<label for="mode-select"><b>Режим:</b></label>
+<select id="mode-select" class="form-select form-select-sm mb-3" style="width: 200px;">
+  <option value="accident" selected>Добавление ДТП</option>
+  <option value="route">Построение линии</option>
+</select>
+
+<form id="filter-form" class="mb-3">
+  <label><input type="checkbox" name="type" value="fatal" checked> Смертельные</label>
+  <label><input type="checkbox" name="type" value="serious" checked> Серьёзные</label>
+  <label><input type="checkbox" name="type" value="minor" checked> Незначительные</label>
+  <label><input type="checkbox" name="type" value="multiple" checked> Массовые</label>
+</form>
+
+<div id="map" style="width: 100%; height: 500px;"></div>
+
+<script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
+<script>
+ymaps.ready(function () {
+    const map = new ymaps.Map("map", {
+        center: [55.751574, 37.573856],
+        zoom: 11
+    });
+
+    let mode = "accident";
+    let pointA = null;
+    let pointB = null;
+    let routeLine = null;
+
+    document.getElementById("mode-select").addEventListener("change", function () {
+        mode = this.value;
+        pointA = null;
+        pointB = null;
+        if (routeLine) map.geoObjects.remove(routeLine);
+        loadAccidents();
+    });
+
+    const loadAccidents = () => {
+        const checked = Array.from(document.querySelectorAll('input[name="type"]:checked'))
+            .map(cb => cb.value);
+
+        fetch('/api/accidents/?types=' + checked.join(','))
+            .then(res => res.json())
+            .then(data => {
+                map.geoObjects.removeAll();
+
+                data.forEach(a => {
+                    const iconColor = {
+                        'Смертельное': 'black',
+                        'Серьёзное': 'red',
+                        'Незначительное': 'yellow',
+                        'Более двух машин': 'purple'
+                    }[a.type] || 'gray';
+
+                    const placemark = new ymaps.Placemark(
+                        [a.lat, a.lon],
+                        {
+                            balloonContent: `<b>${a.title}</b><br>${a.description}<br><i>Тип: ${a.type}</i>`
+                        },
+                        {
+                            preset: 'islands#dotIcon',
+                            iconColor: iconColor
+                        }
+                    );
+
+                    map.geoObjects.add(placemark);
+                });
+
+                if (routeLine) {
+                    map.geoObjects.add(routeLine);
+                }
+            });
+    };
+
+    map.events.add('click', function (e) {
+        const coords = e.get('coords');
+
+        if (mode === "accident") {
+            const url = `/add_accident/?lat=${coords[0]}&lon=${coords[1]}`;
+            window.location.href = url;
+        } else if (mode === "route") {
+            if (!pointA) {
+                pointA = coords;
+                alert("Выбрана точка A. Кликните точку B.");
+            } else if (!pointB) {
+                pointB = coords;
+
+                // строим прямую линию
+                if (routeLine) map.geoObjects.remove(routeLine);
+                routeLine = new ymaps.Polyline([pointA, pointB], {}, {
+                    strokeColor: "#0077FF",
+                    strokeWidth: 4
+                });
+                map.geoObjects.add(routeLine);
+            } else {
+                pointA = coords;
+                pointB = null;
+                if (routeLine) map.geoObjects.remove(routeLine);
+                routeLine = null;
+                alert("Выбрана новая точка A. Теперь кликните точку B.");
+            }
+        }
+    });
+
+    document.getElementById('filter-form').addEventListener('change', () => loadAccidents());
+    loadAccidents();
+});
+</script>
+{% endblock %}
