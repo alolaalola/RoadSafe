@@ -25,3 +25,19 @@
 ```bash
 git clone https://github.com/alolaalola/RoadSafe.git
 cd RoadSafe
+
+python -m venv venv
+venv\Scripts\activate
+
+pip install -r requirements.txt
+
+База данных MySQL 8.0.42 
+mysql -u root -p roadsafe_moscow < db_backup.sql
+
+python manage.py makemigrations
+python manage.py migrate
+
+Запустите сервер
+python manage.py runserver
+
+
